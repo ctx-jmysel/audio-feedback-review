@@ -1,15 +1,19 @@
 {
   "name": "audio-feedback-review",
   "version": "1.0.0",
-  "description": "Audio clip feedback collection tool",
+  "description": "Audio clip feedback collection tool with Google Sheets integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["audio", "feedback", "review"],
+  "keywords": ["audio", "feedback", "review", "google-sheets"],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "google-auth-library": "^9.6.0",
+    "googleapis": "^139.0.0"
+  },
   "engines": {
     "node": ">=18.0.0"
   }

@@ -2,10 +2,45 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
+const { google } = require("googleapis");
+const { auth } = require("google-auth-library");
 
 const root = __dirname;
-const submissionsDir = path.join(root, "submissions");
 const port = Number(process.env.PORT || 8787);
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const GOOGLE_CREDENTIALS = process.env.GOOGLE_CREDENTIALS;
+
+let sheetsClient = null;
+
+// Initialize Google Sheets client
+async function initializeGoogleSheets() {
+  try {
+    if (!GOOGLE_CREDENTIALS || !SPREADSHEET_ID) {
+      console.log("⚠️  Google Sheets not configured. Set GOOGLE_CREDENTIALS and SPREADSHEET_ID environment variables.");
+      return false;
+    }
+
+    // Decode base64 credentials if needed, or parse directly
+    let credentials;
+    try {
+      credentials = JSON.parse(Buffer.from(GOOGLE_CREDENTIALS, "base64").toString());
+    } catch {
+      credentials = JSON.parse(GOOGLE_CREDENTIALS);
+    }
+
+    const authClient = new auth.GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+    });
+
+    sheetsClient = google.sheets({ version: "v4", auth: authClient });
+    console.log("✅ Google Sheets authenticated successfully");
+    return true;
+  } catch (error) {
+    console.error("❌ Failed to initialize Google Sheets:", error.message);
+    return false;
+  }
+}
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -20,14 +55,6 @@ const mimeTypes = {
 function send(response, statusCode, body, contentType = "text/plain; charset=utf-8") {
   response.writeHead(statusCode, { "Content-Type": contentType });
   response.end(body);
-}
-
-function reviewerSlug(name) {
-  return String(name || "reviewer")
-    .trim()
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase() || "reviewer";
 }
 
 function readRequestBody(request) {
@@ -50,7 +77,6 @@ async function handleSubmit(request, response) {
   try {
     const body = await readRequestBody(request);
     const payload = JSON.parse(body || "{}");
-    const reviewer = reviewerSlug(payload.reviewer);
     const csv = String(payload.csv || "");
 
     if (!csv.trim()) {
@@ -58,11 +84,56 @@ async function handleSubmit(request, response) {
       return;
     }
 
-    fs.mkdirSync(submissionsDir, { recursive: true });
-    const filename = `audio-feedback-${reviewer}.csv`;
-    fs.writeFileSync(path.join(submissionsDir, filename), csv, "utf8");
-    send(response, 200, JSON.stringify({ filename, path: `submissions/${filename}` }), "application/json; charset=utf-8");
+    // If Google Sheets not configured, return error
+    if (!sheetsClient) {
+      send(response, 503, JSON.stringify({ error: "Google Sheets not configured" }), "application/json; charset=utf-8");
+      return;
+    }
+
+    // Parse CSV and append to Google Sheet
+    const lines = csv.trim().split("\n");
+    const headers = lines[0].split(",").map((h) => h.replace(/^"|"$/g, ""));
+    const values = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = [];
+      let current = "";
+      let inQuotes = false;
+
+      // Simple CSV parser
+      for (let j = 0; j < lines[i].length; j++) {
+        const char = lines[i][j];
+        if (char === '"') {
+          if (inQuotes && lines[i][j + 1] === '"') {
+            current += '"';
+            j++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === "," && !inQuotes) {
+          row.push(current.trim());
+          current = "";
+        } else {
+          current += char;
+        }
+      }
+      row.push(current.trim());
+      values.push(row);
+    }
+
+    // Append to Google Sheet
+    await sheetsClient.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Sheet1!A:H",
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: values
+      }
+    });
+
+    send(response, 200, JSON.stringify({ message: "Review submitted to Google Sheet successfully" }), "application/json; charset=utf-8");
   } catch (error) {
+    console.error("Error submitting to Google Sheets:", error.message);
     send(response, 500, JSON.stringify({ error: error.message }), "application/json; charset=utf-8");
   }
 }
@@ -103,11 +174,11 @@ const server = http.createServer((request, response) => {
   send(response, 405, "Method not allowed");
 });
 
-server.listen(port, "0.0.0.0", () => {
+server.listen(port, "0.0.0.0", async () => {
   const os = require("node:os");
   const interfaces = os.networkInterfaces();
   let localIP = "127.0.0.1";
-  
+
   for (const name in interfaces) {
     for (const iface of interfaces[name]) {
       if (iface.family === "IPv4" && !iface.internal) {
@@ -116,9 +187,10 @@ server.listen(port, "0.0.0.0", () => {
       }
     }
   }
-  
+
   console.log(`Audio feedback page running at:`);
   console.log(`  Local: http://127.0.0.1:${port}/audio-feedback.html`);
   console.log(`  Network: http://${localIP}:${port}/audio-feedback.html`);
-  console.log(`Review CSV files will be written to ${submissionsDir}`);
+
+  await initializeGoogleSheets();
 });
