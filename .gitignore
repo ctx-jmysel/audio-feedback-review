@@ -4,3 +4,4 @@ node_modules/
 submissions/
 *.log
 .npm
+*.json

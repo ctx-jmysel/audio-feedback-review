@@ -15,6 +15,10 @@ let sheetsClient = null;
 // Initialize Google Sheets client
 async function initializeGoogleSheets() {
   try {
+    console.log("🔍 Checking credentials...");
+    console.log("SPREADSHEET_ID:", SPREADSHEET_ID ? "✅ Set" : "❌ Not set");
+    console.log("GOOGLE_CREDENTIALS:", GOOGLE_CREDENTIALS ? "✅ Set" : "❌ Not set");
+
     if (!GOOGLE_CREDENTIALS || !SPREADSHEET_ID) {
       console.log("⚠️  Google Sheets not configured. Set GOOGLE_CREDENTIALS and SPREADSHEET_ID environment variables.");
       return false;
@@ -23,9 +27,13 @@ async function initializeGoogleSheets() {
     // Decode base64 credentials if needed, or parse directly
     let credentials;
     try {
-      credentials = JSON.parse(Buffer.from(GOOGLE_CREDENTIALS, "base64").toString());
-    } catch {
+      console.log("Attempting to parse credentials...");
       credentials = JSON.parse(GOOGLE_CREDENTIALS);
+      console.log("✅ Credentials parsed successfully");
+      console.log("Service account:", credentials.client_email);
+    } catch (parseError) {
+      console.error("❌ Failed to parse credentials:", parseError.message);
+      return false;
     }
 
     const authClient = new auth.GoogleAuth({
@@ -38,6 +46,7 @@ async function initializeGoogleSheets() {
     return true;
   } catch (error) {
     console.error("❌ Failed to initialize Google Sheets:", error.message);
+    console.error("Full error:", error);
     return false;
   }
 }
@@ -79,6 +88,8 @@ async function handleSubmit(request, response) {
     const payload = JSON.parse(body || "{}");
     const csv = String(payload.csv || "");
 
+    console.log("📝 Received submission from:", payload.reviewer);
+
     if (!csv.trim()) {
       send(response, 400, JSON.stringify({ error: "Missing CSV data" }), "application/json; charset=utf-8");
       return;
@@ -86,10 +97,12 @@ async function handleSubmit(request, response) {
 
     // If Google Sheets not configured, return error
     if (!sheetsClient) {
-      send(response, 503, JSON.stringify({ error: "Google Sheets not configured" }), "application/json; charset=utf-8");
+      console.error("❌ Google Sheets client not initialized. Check credentials.");
+      send(response, 503, JSON.stringify({ error: "Google Sheets not configured - check server logs" }), "application/json; charset=utf-8");
       return;
     }
 
+    console.log("Appending to Google Sheet...");
     // Parse CSV and append to Google Sheet
     const lines = csv.trim().split("\n");
     const headers = lines[0].split(",").map((h) => h.replace(/^"|"$/g, ""));
@@ -122,7 +135,7 @@ async function handleSubmit(request, response) {
     }
 
     // Append to Google Sheet
-    await sheetsClient.spreadsheets.values.append({
+    const result = await sheetsClient.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: "Sheet1!A:H",
       valueInputOption: "USER_ENTERED",
@@ -131,9 +144,11 @@ async function handleSubmit(request, response) {
       }
     });
 
+    console.log("✅ Successfully appended to Google Sheet");
     send(response, 200, JSON.stringify({ message: "Review submitted to Google Sheet successfully" }), "application/json; charset=utf-8");
   } catch (error) {
-    console.error("Error submitting to Google Sheets:", error.message);
+    console.error("❌ Error submitting to Google Sheets:", error.message);
+    console.error("Full error:", error);
     send(response, 500, JSON.stringify({ error: error.message }), "application/json; charset=utf-8");
   }
 }
