@@ -24,17 +24,32 @@ async function initializeGoogleSheets() {
       return false;
     }
 
-    // Decode base64 credentials if needed, or parse directly
+    // Parse credentials - handle various formats
     let credentials;
+    let credentialsString = GOOGLE_CREDENTIALS;
+
     try {
-      console.log("Attempting to parse credentials...");
-      credentials = JSON.parse(GOOGLE_CREDENTIALS);
-      console.log("✅ Credentials parsed successfully");
-      console.log("Service account:", credentials.client_email);
+      console.log("Attempting to parse credentials (first 200 chars):", credentialsString.substring(0, 200));
+      
+      // Try direct JSON parse first
+      credentials = JSON.parse(credentialsString);
+      console.log("✅ Credentials parsed successfully (direct)");
     } catch (parseError) {
-      console.error("❌ Failed to parse credentials:", parseError.message);
-      return false;
+      console.log("⚠️  Direct parse failed, trying base64...", parseError.message);
+      
+      try {
+        // Try base64 decode
+        credentialsString = Buffer.from(GOOGLE_CREDENTIALS, "base64").toString("utf-8");
+        credentials = JSON.parse(credentialsString);
+        console.log("✅ Credentials parsed successfully (base64)");
+      } catch (base64Error) {
+        console.error("❌ Base64 parse also failed:", base64Error.message);
+        console.error("First 300 chars of GOOGLE_CREDENTIALS:", GOOGLE_CREDENTIALS.substring(0, 300));
+        throw new Error(`Failed to parse credentials: ${parseError.message}`);
+      }
     }
+
+    console.log("Service account email:", credentials.client_email);
 
     const authClient = new auth.GoogleAuth({
       credentials,
