@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
 const { google } = require("googleapis");
-const { auth } = require("google-auth-library");
+const { GoogleAuth } = require("google-auth-library");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 8787);
@@ -52,7 +52,7 @@ async function initializeGoogleSheets() {
 
     console.log("Service account email:", credentials.client_email);
 
-    const authClient = new auth.GoogleAuth({
+    const authClient = new GoogleAuth({
       credentials,
       scopes: ["https://www.googleapis.com/auth/spreadsheets"]
     });
