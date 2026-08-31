@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Audio Clip Feedback</title>
+    <style>
+      :root {
+        --ink: #1c2230;
+        --muted: #697386;
+        --paper: #fffdf7;
+        --panel: #ffffff;
+        --line: #d9ded7;
+        --accent: #197278;
+        --accent-dark: #0f565b;
+        --accent-soft: #d9f0ed;
+        --warn: #b45309;
+        --shadow: 0 18px 48px rgba(28, 34, 48, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        font-family: Avenir Next, Avenir, Segoe UI, sans-serif;
+        background:
+          radial-gradient(circle at 15% 15%, rgba(25, 114, 120, 0.16), transparent 28rem),
+          linear-gradient(135deg, #fffdf7 0%, #eef4ed 48%, #f8efe1 100%);
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      .shell {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        align-items: end;
+        margin-bottom: 24px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-family: Georgia, Cambria, serif;
+        font-size: clamp(2rem, 5vw, 4.5rem);
+        font-weight: 700;
+        line-height: 0.95;
+        letter-spacing: 0;
+      }
+
+      .lede {
+        max-width: 720px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1.55;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: var(--accent);
+        box-shadow: 0 8px 18px rgba(25, 114, 120, 0.2);
+        transition: transform 160ms ease, background 160ms ease;
+      }
+
+      .button:hover {
+        background: var(--accent-dark);
+        transform: translateY(-1px);
+      }
+
+      .button.secondary {
+        color: var(--accent-dark);
+        background: var(--accent-soft);
+        box-shadow: none;
+      }
+
+      .button.warning {
+        color: #ffffff;
+        background: var(--warn);
+      }
+
+      .button input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .layout {
+        display: grid;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .clip-list,
+      .workspace {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .clip-list {
+        overflow: hidden;
+      }
+
+      .clip-list header,
+      .workspace header {
+        padding: 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1rem;
+        letter-spacing: 0;
+      }
+
+      .clip-count {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .clip-button {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 16px 18px;
+        border-top: 1px solid var(--line);
+        color: var(--ink);
+        background: transparent;
+        text-align: left;
+      }
+
+      .clip-button:first-of-type {
+        border-top: 0;
+      }
+
+      .clip-button:hover,
+      .clip-button.active {
+        background: rgba(217, 240, 237, 0.65);
+      }
+
+      .clip-title {
+        display: block;
+        font-weight: 700;
+      }
+
+      .clip-meta {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--accent);
+        background: transparent;
+      }
+
+      .status-dot.complete {
+        background: var(--accent);
+      }
+
+      .workspace {
+        min-width: 0;
+      }
+
+      .reviewer-panel {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .reviewer-panel .footer-actions {
+        margin-top: 16px;
+      }
+
+      .review-cards {
+        display: grid;
+        gap: 18px;
+      }
+
+      .review-card {
+        padding: 22px;
+        border-top: 1px solid var(--line);
+      }
+
+      .review-card:first-child {
+        border-top: 0;
+      }
+
+      .workspace-body {
+        padding: 22px;
+      }
+
+      .selected-title {
+        margin: 0 0 8px;
+        font-family: Georgia, Cambria, serif;
+        font-size: clamp(1.8rem, 3vw, 3rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .selected-description {
+        margin: 0 0 18px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      audio {
+        width: 100%;
+        margin: 8px 0 16px;
+        border-radius: 8px;
+      }
+
+      .audio-note {
+        display: none;
+        margin: 0 0 18px;
+        padding: 12px 14px;
+        border: 1px solid #f2c078;
+        border-radius: 8px;
+        color: #7c3e08;
+        background: #fff5df;
+        line-height: 1.45;
+      }
+
+      .audio-note.visible {
+        display: block;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 0.88rem;
+        font-weight: 500;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        border: 1px solid #cbd3cf;
+        border-radius: 8px;
+        color: var(--ink);
+        background: #ffffff;
+      }
+
+      input,
+      select {
+        min-height: 44px;
+        padding: 9px 11px;
+      }
+
+      textarea {
+        min-height: 132px;
+        padding: 12px;
+        resize: vertical;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: 3px solid rgba(25, 114, 120, 0.2);
+        border-color: var(--accent);
+      }
+
+      .rating {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(42px, 1fr));
+        gap: 8px;
+      }
+
+      .rating button {
+        min-height: 44px;
+        border: 1px solid #cbd3cf;
+        border-radius: 8px;
+        color: var(--ink);
+        background: #ffffff;
+        font-weight: 800;
+      }
+
+      .rating button.active {
+        color: #ffffff;
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+
+      .chip-field {
+        display: grid;
+        gap: 10px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        min-height: 38px;
+        padding: 8px 12px;
+        border: 1px solid #cbd3cf;
+        border-radius: 999px;
+        color: var(--ink);
+        background: #ffffff;
+        font-weight: 800;
+      }
+
+      .chip.active {
+        color: #ffffff;
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+
+      .footer-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 12px;
+        align-items: center;
+        margin-top: 20px;
+      }
+
+      .submit-panel {
+        padding: 18px 22px 22px;
+        border-top: 1px solid var(--line);
+      }
+
+      .save-state {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 840px) {
+        .topbar {
+          grid-template-columns: 1fr;
+        }
+
+        .actions {
+          justify-content: flex-start;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .shell {
+          width: min(100% - 20px, 1180px);
+          padding: 16px 0;
+        }
+
+        .form-grid,
+        .rating {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace-body {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar" aria-labelledby="page-title">
+        <div>
+          <h1 id="page-title">Audio Clip Feedback</h1>
+          <p class="lede">
+            Review each clip, capture a rating and comments, then submit the feedback when finished. Refreshing the page starts a new blank review.
+          </p>
+        </div>
+      </section>
+
+      <section class="layout">
+        <section class="reviewer-panel" aria-label="Reviewer details">
+          <label>
+            Reviewer name
+            <input id="reviewer" autocomplete="name" placeholder="Name or initials" />
+          </label>
+        </section>
+
+        <section class="workspace" aria-live="polite">
+          <header>
+            <h2>All Clip Reviews</h2>
+            <div class="clip-count" id="clip-count"></div>
+          </header>
+          <form id="feedback-form" class="review-cards"></form>
+          <div class="submit-panel">
+            <div class="footer-actions">
+              <span class="save-state" id="save-state">Ready</span>
+              <button class="button" id="submit-all" type="button">Submit Review</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const defaultClips = [
+        {
+          id: "delphi",
+          title: "Delphi",
+          description: "Review Delphi.mp3.",
+          src: "audio/Delphi.mp3",
+          duration: ""
+        },
+        {
+          id: "elizabeth",
+          title: "Elizabeth",
+          description: "Review Elizabeth.mp3.",
+          src: "audio/Elizabeth.mp3",
+          duration: ""
+        },
+        {
+          id: "helen",
+          title: "Helen",
+          description: "Review Helen.mp3.",
+          src: "audio/Helen.mp3",
+          duration: ""
+        },
+        {
+          id: "isabella",
+          title: "Isabella",
+          description: "Review Isabella.mp3.",
+          src: "audio/Isabella.mp3",
+          duration: ""
+        },
+        {
+          id: "katie",
+          title: "Katie",
+          description: "Review Katie.mp3.",
+          src: "audio/Katie.mp3",
+          duration: ""
+        },
+        {
+          id: "olivia",
+          title: "Olivia",
+          description: "Review Olivia.mp3.",
+          src: "audio/Olivia.mp3",
+          duration: ""
+        },
+        {
+          id: "samara",
+          title: "Samara",
+          description: "Review Samara.mp3.",
+          src: "audio/Samara.mp3",
+          duration: ""
+        },
+        {
+          id: "valory",
+          title: "Valory",
+          description: "Review Valory.mp3.",
+          src: "audio/Valory.mp3",
+          duration: ""
+        }
+      ];
+
+      const clipCount = document.querySelector("#clip-count");
+      const form = document.querySelector("#feedback-form");
+      const reviewer = document.querySelector("#reviewer");
+      const saveState = document.querySelector("#save-state");
+      const descriptorOptions = ["Warm", "Robotic", "Clear", "Natural", "Unhurried", "Cold/Clinical", "Overly Cheerful", "Breathy", "Sharp", "Rushed", "Trustworthy", "Distracting", "Steady"];
+
+      let clips = [...defaultClips];
+      let feedback = {};
+      let reviewerName = "";
+
+      function persistFeedback() {
+        saveState.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      }
+
+      function clipFeedback(clipId) {
+        feedback[clipId] ||= {
+          rating: "",
+          descriptors: [],
+          feedbackNotes: "",
+          updatedAt: ""
+        };
+
+        if (!feedback[clipId].feedbackNotes && feedback[clipId].improve) {
+          feedback[clipId].feedbackNotes = feedback[clipId].improve;
+        }
+        feedback[clipId].descriptors ||= [];
+        return feedback[clipId];
+      }
+
+      function isComplete(clipId) {
+        const entry = feedback[clipId];
+        return Boolean(entry && entry.rating && (entry.feedbackNotes || entry.improve || entry.descriptors?.length));
+      }
+
+      function renderRating(clipId, ratingControl) {
+        const current = clipFeedback(clipId).rating;
+        ratingControl.innerHTML = "";
+
+        for (let score = 1; score <= 5; score += 1) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = score;
+          button.setAttribute("role", "radio");
+          button.setAttribute("aria-checked", String(String(score) === current));
+          button.className = String(score) === current ? "active" : "";
+          button.addEventListener("click", () => {
+            updateField(clipId, "rating", String(score));
+            renderRating(clipId, ratingControl);
+          });
+          ratingControl.appendChild(button);
+        }
+      }
+
+      function renderDescriptorChips(clipId, descriptorChips) {
+        const selected = clipFeedback(clipId).descriptors || [];
+        descriptorChips.innerHTML = "";
+
+        descriptorOptions.forEach((descriptor) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = selected.includes(descriptor) ? "chip active" : "chip";
+          button.textContent = descriptor;
+          button.setAttribute("aria-pressed", String(selected.includes(descriptor)));
+          button.addEventListener("click", () => toggleDescriptor(clipId, descriptor));
+          descriptorChips.appendChild(button);
+        });
+      }
+
+      function renderClipReviews() {
+        form.innerHTML = "";
+        clipCount.textContent = `${clips.length} clips, ${clips.filter((clip) => isComplete(clip.id)).length} reviewed`;
+
+        clips.forEach((clip) => {
+          const entry = clipFeedback(clip.id);
+          const card = document.createElement("section");
+          card.className = "review-card";
+
+          const title = document.createElement("h3");
+          title.className = "selected-title";
+          title.textContent = clip.title;
+
+          const description = document.createElement("p");
+          description.className = "selected-description";
+          description.textContent = clip.description;
+
+          const audio = document.createElement("audio");
+          audio.controls = true;
+          audio.preload = "metadata";
+          audio.src = clip.src;
+
+          // Stop other audio when this one plays
+          audio.addEventListener("play", () => {
+            document.querySelectorAll("audio").forEach((otherAudio) => {
+              if (otherAudio !== audio) {
+                otherAudio.pause();
+              }
+            });
+          });
+
+          const audioNote = document.createElement("p");
+          audioNote.className = "audio-note";
+          audio.addEventListener("error", () => {
+            audioNote.textContent = `This clip could not be loaded: ${clip.src}`;
+            audioNote.classList.add("visible");
+          });
+
+          const grid = document.createElement("div");
+          grid.className = "form-grid";
+
+          const ratingLabel = document.createElement("label");
+          ratingLabel.innerHTML = '<span>How appropriate is this voice for Selene?</span><span class="hint">1 is low, 5 is high</span>';
+          const ratingControl = document.createElement("div");
+          ratingControl.className = "rating";
+          ratingControl.setAttribute("role", "radiogroup");
+          ratingControl.setAttribute("aria-label", `${clip.title} appropriateness for Selene`);
+          ratingLabel.appendChild(ratingControl);
+
+          const chipField = document.createElement("div");
+          chipField.className = "chip-field full";
+          chipField.innerHTML = '<strong>Descriptors</strong><span class="hint">Select all that apply</span>';
+          const descriptorChips = document.createElement("div");
+          descriptorChips.className = "chips";
+          descriptorChips.setAttribute("aria-label", `${clip.title} descriptors`);
+          chipField.appendChild(descriptorChips);
+
+          const notesLabel = document.createElement("label");
+          notesLabel.className = "full";
+          notesLabel.textContent = "Feedback Notes";
+          const notes = document.createElement("textarea");
+          notes.name = "feedbackNotes";
+          notes.placeholder = "Add observations, concerns, edits, or follow-up notes.";
+          notes.value = entry.feedbackNotes || entry.improve || "";
+          notes.addEventListener("input", (event) => updateField(clip.id, "feedbackNotes", event.target.value));
+          notesLabel.appendChild(notes);
+
+          grid.append(ratingLabel, chipField, notesLabel);
+          card.append(title, description, audio, audioNote, grid);
+          form.appendChild(card);
+
+          renderRating(clip.id, ratingControl);
+          renderDescriptorChips(clip.id, descriptorChips);
+        });
+
+        saveState.textContent = "Ready";
+      }
+
+      function updateField(clipId, field, value) {
+        const entry = clipFeedback(clipId);
+        entry[field] = value;
+        entry.updatedAt = new Date().toISOString();
+        persistFeedback();
+        clipCount.textContent = `${clips.length} clips, ${clips.filter((clip) => isComplete(clip.id)).length} reviewed`;
+      }
+
+      function toggleDescriptor(clipId, descriptor) {
+        const entry = clipFeedback(clipId);
+        const selected = new Set(entry.descriptors || []);
+
+        if (selected.has(descriptor)) {
+          selected.delete(descriptor);
+        } else {
+          selected.add(descriptor);
+        }
+
+        entry.descriptors = Array.from(selected);
+        entry.updatedAt = new Date().toISOString();
+        persistFeedback();
+
+        // Update only the visual state of the descriptor chip without re-rendering the entire page
+        const clip = clips.find(c => c.id === clipId);
+        if (clip) {
+          const cards = form.querySelectorAll("section.review-card");
+          cards.forEach((card) => {
+            const title = card.querySelector("h3.selected-title");
+            if (title && title.textContent === clip.title) {
+              const chips = card.querySelectorAll(".chips button");
+              chips.forEach((chip) => {
+                if (chip.textContent === descriptor) {
+                  chip.classList.toggle("active");
+                  chip.setAttribute("aria-pressed", String(selected.includes(descriptor)));
+                }
+              });
+            }
+          });
+        }
+
+        // Update clip count
+        clipCount.textContent = `${clips.length} clips, ${clips.filter((clip) => isComplete(clip.id)).length} reviewed`;
+      }
+
+      function feedbackRows() {
+        return clips.map((clip) => ({
+          clipId: clip.id,
+          clipTitle: clip.title,
+          clipSource: clip.src,
+          ...feedback[clip.id],
+          reviewer: reviewerName
+        }));
+      }
+
+      function csvEscape(value) {
+        return `"${String(value ?? "").replaceAll('"', '""')}"`;
+      }
+
+      function buildCsv() {
+        const headers = ["clipId", "clipTitle", "clipSource", "reviewer", "rating", "descriptors", "feedbackNotes", "updatedAt"];
+        const rows = feedbackRows().map((row) => headers.map((header) => csvEscape(row[header])).join(","));
+        return [headers.join(","), ...rows].join("\n");
+      }
+
+      async function submitAllFeedback() {
+        persistFeedback();
+        saveState.textContent = "Submitting review...";
+
+        try {
+          const response = await fetch("/submit-review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reviewer: reviewerName, csv: buildCsv() })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Submit failed with status ${response.status}`);
+          }
+
+          const result = await response.json();
+          saveState.textContent = `Submitted review to ${result.path}`;
+        } catch (error) {
+          saveState.textContent = `Submit failed: ${error.message}`;
+        }
+      }
+
+      reviewer.addEventListener("input", (event) => {
+        reviewerName = event.target.value;
+        saveState.textContent = `Reviewer updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+      });
+
+      document.querySelector("#submit-all").addEventListener("click", submitAllFeedback);
+
+      reviewer.value = reviewerName;
+      renderClipReviews();
+    </script>
+  </body>
+</html>
