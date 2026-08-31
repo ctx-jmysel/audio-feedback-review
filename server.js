@@ -14,7 +14,8 @@ let sheetsClient = null;
 
 // Initialize Google Sheets client
 async function initializeGoogleSheets() {
-  try {
+        const cleanBase64 = GOOGLE_CREDENTIALS.replace(/\s/g, "");
+        credentialsString = Buffer.from(cleanBase64, "base64").toString("utf-8");
     console.log("🔍 Checking credentials...");
     console.log("SPREADSHEET_ID:", SPREADSHEET_ID ? "✅ Set" : "❌ Not set");
     console.log("GOOGLE_CREDENTIALS:", GOOGLE_CREDENTIALS ? "✅ Set" : "❌ Not set");
